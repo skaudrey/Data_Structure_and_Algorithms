@@ -1,5 +1,6 @@
 package Ex7;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -12,14 +13,20 @@ import java.util.Arrays;
  */
 public class hash {
     /* @Description:
-        1. H0: Check the hash value, where x=1,2,...,11, and the hashfunction is x^2+1
-        2. H1:
-            a) For hash, new a hash table in size n, and the hash function is A[i]%n. Put the conflicted A[i] into an array
+        1. H0: Check the hash value, where x=1,2,...,11, and the hashfunction is x^2+1, then you can find it
+               is not uniform.
+        2. H1: count the unique values in array A
+            a) For hash, new a hash table in size n, and the hash function is A[i]%n. Put the conflicted hash(A[i]) into counting array C.
+            *Fix*: The most important is initialize the hash table h_table in size 2*len(A)-1 and filled by 0, and the hash function is
+            A[i]%len(h_table). The update h_table only when h_table[h] is 0; finally calculate the unique count by sum(h_table);
+
             b) Use heap, each time if the inserted node is already in heap, counting.
+            *Fix*: firstly sort by heapsort, then travers and remove the duplicates.
         3. H2:
             I am not sure the meaning of it, how to reorder by linear measurement. It feels like even if you did
             randomize the permutation of insertion, it still will ends with long bloc as long as they have the same
             hash key.
+            *Fix*: Second linear is not useful for breaking a block, see notes of hash in page 4, the top lines.
         4. H3: The average cost for linear search while building hash table
             The one need to be measured: \bar{c} = \frac{1}{n} \sum_{i\colon T[i]\ne\mathsf{null}} c(i)
     */
@@ -62,14 +69,14 @@ public class hash {
     }
 
     private int hashFucH4(double x, int n){
-        return (int)Math.floor(2*n*x);
+        return (int)Math.floor(2*x*n)%n;
     }
 
     public void insertH4(double x, double[] G){
-        int n = (G.length)/2;
+        int n = (int)Math.ceil(G.length*1.0/2);
         int i = hashFucH4(x,n);
-        while(G[i]>=0 && G[i]<1){
-            i = (i+1)%(2*n);
+        while(!Double.isNaN(G[i])){
+            i = (i+1)%n;
         }
         G[i] = x;
     }
@@ -80,15 +87,33 @@ public class hash {
         // For the worst case, to insert each compares n times, then it's theta(n^2)
         double[] G =  new double[2*F.length];
         Arrays.fill(G,Double.NaN);
-        int j = 0; int i =0;
+//        int j = 0; int i =0;
 
-        for(double k:F)
-            insertH4(k,G);
+        for(int k=0; k<F.length; k++)
+            insertH4(F[k],G);
 
-        while(i<G.length){
-            if(G[i]>=0 && G[i]<1)
-                F[j++] = G[i];
-            i++;
+        Arrays.fill(F,Double.NaN); //Clear F so as to copy
+
+        for(int i=0; i<G.length;i++){
+            if(Double.isNaN(G[i])) continue;
+
+            /*
+            * Fix: not just copy one by one, need insertion sort here according to the requirements of prob.
+            * */
+            for(int j=0; j<F.length; j++){
+                if(Double.isNaN(F[j])){
+                    F[j] = G[i];
+                    break;
+                }
+                if(F[j]<=G[i]) continue;
+                // sort and move the bigger ones towards right
+                for(int k=F.length-1; k>j;k--){
+                    if(Double.isNaN(F[k-1])) continue; //move towards left until get F[k]!=NaN
+                    F[k] = F[k-1]; //move bigger one towards right.
+                }
+                F[j] = G[i];
+                break;
+            }
         }
 
     }
@@ -126,8 +151,9 @@ public class hash {
 
         System.out.format(formstr,"H4-a-hash sort");
         double[] F = {.32,.36,.31,.99,.15,.97};
-        hasher.hashsort(F);
-        System.out.println(Arrays.toString(F));
+        double[] F1 = {.5,.2,.3,.1,.9,.7,.6};
+        hasher.hashsort(F1);
+        System.out.println(Arrays.toString(F1));
 
         int[] H = {76,66,88,68,70,71,78,84,Integer.MAX_VALUE,Integer.MAX_VALUE,65};
         int[] H1 = {76,66,88,68,70,71,78,84,Integer.MAX_VALUE,Integer.MAX_VALUE,75};

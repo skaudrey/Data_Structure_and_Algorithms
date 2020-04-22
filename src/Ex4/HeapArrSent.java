@@ -1,4 +1,5 @@
 package Ex4;
+import java.util.ArrayList;
 import java.util.Arrays;
 /**
  * @author Miao
@@ -166,6 +167,17 @@ public class HeapArrSent {
         }
 
         return n;
+    }
+
+    public int[] heapsort(){
+//        int[] tmp = Arrays.copyOf(this.heap,nSize);
+        int[] result =  new int[nSize];
+
+        int i=0;
+        while(nSize>0){
+            result[i++] = deleteMin();
+        }
+        return result;
     }
 
     public static void main(String[] args){

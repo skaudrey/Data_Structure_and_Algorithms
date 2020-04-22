@@ -1,8 +1,9 @@
 package Algo;
-//import java.util.Bag;
 
 import java.lang.reflect.Array;
 import java.util.*;
+
+
 
 /**
  * @author Miao
@@ -13,6 +14,7 @@ import java.util.*;
  * @date 2020/3/9 Undirected graph
  */
 public class Graph {
+    // undirected graph, and thus each edge is saved twice.
     class Edge implements Comparable<Edge>{ // useful while comparing the edges in graph.
         int src, dest, weight;
 
@@ -70,6 +72,11 @@ public class Graph {
     LinkedList<Edge> edge;
     int[][] adjMatrix;
     EdgeNode[] AdjList;
+    int[] color = new int[10];
+    int min_color = 10000;
+
+    boolean[] visited;
+    int[] edgeTo;
 
     Graph(int V, int E){
         this.V = V;
@@ -80,6 +87,8 @@ public class Graph {
         }
         this.adjMatrix = new int[V][V];
         this.AdjList = new EdgeNode[V];
+        this.visited = new boolean[V];
+        this.edgeTo = new int[V];
     }
 
     Graph(int[][] adjMatrix,int nE){
@@ -98,6 +107,8 @@ public class Graph {
         }
         this.E = k;
         this.adjMatrix = adjMatrix;
+        this.visited = new boolean[V];
+        this.edgeTo = new int[V];
         buildAdjListByMat();
     }
 
@@ -116,6 +127,8 @@ public class Graph {
             }
         this.E = nE;
         this.AdjList = adjList;
+        this.visited = new boolean[V];
+        this.edgeTo = new int[V];
         buildAdjMatByList();
     }
 
@@ -125,7 +138,6 @@ public class Graph {
         }
     }
 
-
     public int getV(){return V;}
     public int getE(){return E;}
 
@@ -134,7 +146,6 @@ public class Graph {
          * @param s: the starting point
         * @Return:
         */
-        boolean[] visited = new boolean[V];
         Arrays.fill(visited,false);
         LinkedList<Integer> queue = new LinkedList<>();
 
@@ -149,6 +160,7 @@ public class Graph {
                 int j = tmp.nAdjNode;
                 if(!visited[j]){
                     visited[j] = true;
+                    edgeTo[j] = s;
                     queue.offer(j);
                 }
                 tmp = tmp.next;
@@ -156,32 +168,163 @@ public class Graph {
         }
     }
 
-    public void DFS(int s){
+    public void DFS(){
+        Arrays.fill(visited,false);
+        for(int i=0; i<V; i++) // This loop is needed because may the graph is not whole
+            // connected and thus some will be missed in sub-DFS
+            if(!visited[i])
+                DFS(i);
+    }
+
+    private void DFS(int s){
         /* @Description: Depth first searching, a stack fits.
          * @param s: the source node
         * @Return:
         */
-        boolean[] visited = new boolean[V];
-        Stack<Integer> stack = new Stack<>();
-        Arrays.fill(visited,false);
-
         visited[s] = true;
-        stack.push(s);
-
-        while(stack.size()!=0){
-            s = stack.pop();
-            System.out.print(s+" ");
-            EdgeNode tmp = AdjList[s].next;
-            while(tmp!=null){
-                int j = tmp.nAdjNode;
-                if(!visited[j]){
-                    visited[j] = true;
-                    stack.push(j);
-                }
-                tmp = tmp.next;
+        System.out.print(s+" ");
+        EdgeNode ll = AdjList[s].next;
+        while(ll!=null){
+            int j = ll.nAdjNode;
+            if(!visited[j]){
+                edgeTo[j] = s;
+                DFS(j);
             }
+            ll = ll.next;
         }
     }
+
+    public boolean pathTo(int u, int v, boolean method){
+        /* @param method: true for DFS and false for BFS*/
+        for(int i=0; i<V; i++) edgeTo[i] = i; //Initialization of edgeTo array, each node's parent is itself.
+
+        int[] path = new int[V]; int i =0;   path[i++] = v; // maintain the path
+        boolean flag = false;
+
+        if(u>V && v>V) return flag; // whether the node index is valid
+        if(method)  DFS();
+        else BFS(0);
+
+        int nP = edgeTo[v], nS = v;
+
+        while(true){
+            path[i] = nP;   i++;
+            if(nP==nS) break;
+            else if(nP==u){ flag = true; break;} // find a path, break
+            else{  nS = nP;  nP = edgeTo[nS];} // else, continue to check its parent.
+        }
+        path[i++] = u;
+        // print path while there is one (denoted by flag)
+        if(flag){
+            System.out.println("Path from " + u +" to "+v +":");
+            for(int j=i-2; j>=0; j--)
+                System.out.print(path[j]+"==>");
+        }
+        return flag;}
+
+    public boolean isCycle(boolean method){
+        /* @Description:
+         * @param method: true for DFS and false for BFS.
+        * @Return:
+        */
+        if(method) return DFSCycle();
+        else return BFSCycle(0);
+    }
+
+    private boolean DFSCycle(){
+        Arrays.fill(visited,false);
+        boolean flag = false;
+        for(int i=0; i<V; i++)
+            if(!visited[i])
+                flag =  DFSCycle(i,i);
+
+        return flag;
+    }
+    private boolean DFSCycle(int u, int v){
+        boolean flag = false;
+        visited[u] = true;
+        EdgeNode ll = AdjList[u].next;
+        while(ll!=null){
+
+            int nj = ll.nAdjNode;
+            if(!visited[nj]) DFSCycle(nj,v);
+            else if(nj!=u) {flag = true; break;}
+            // Because it always start from u,
+            // therefore as long as one find a node is already visited b a node but node u,
+            // it means there is a cycle and passed u.
+
+            ll = ll.next;
+        }
+        return flag;
+    }
+
+
+    private boolean BFSCycle(int s){
+        // use color to denote whether a node is already visited or not, or is going to be visited. When there is a cycle,
+        // the node that is gonna visited is waiting for decision of whether it is done
+        // (When a node is done, it is colored to black so as to denote all the adjacent node related are visited.).
+        // Because for queue, the node is visited is dequeued, then all the node that adjacent to it and also not visited is enqueued.
+        int[] color = new int[V];
+        Arrays.fill(color,0); // 0 for not visited, 1 for waiting to be decided, and -1 for done.
+        Queue<Integer> q = new LinkedList<>();  q.offer(s);
+
+        while(!q.isEmpty()){
+            int m = q.poll();
+            color[m] = 1;
+
+            EdgeNode ll = AdjList[m].next;
+            while(ll!=null){
+                int n = ll.nAdjNode;
+                if(color[n]==0){
+                    color[n] = 1;
+                    q.offer(n);
+                }
+                else if(color[n]==1){ return true;}
+                ll = ll.next;
+            }
+            color[m] = -1;
+
+        }
+        return false;
+    }
+
+
+    public boolean isAllColored(int depth,int c){// depth actually denotes the index of checked node.
+        for(int i=0;i<V;i++){
+            if(adjMatrix[i][depth]<Integer.MAX_VALUE||
+                    adjMatrix[depth][i]<Integer.MAX_VALUE){
+                if(color[i]==c)
+                    return false;
+                if(color[i]==0)
+                    continue;
+            }
+        }
+        return true;
+    }
+
+    public void dfs_color(int depth,int color_s){
+        String str = "dfs_color: depth = %d, color_s = %d\n";
+        System.out.format(str,depth,color_s);
+        if(color_s>=min_color)//The color currently is larger than min_color, backtrack
+            return;
+        if(depth>=V){    //coloring complete
+            min_color = min_color<color_s? min_color:color_s;
+            return;
+        }
+
+        for(int i=0;i<color_s;i++){ // each time check use color 0 to color_s can color nodes 0 to depth successfully.
+            if(isAllColored(depth,i)){
+                color[depth]=i;
+                dfs_color(depth+1,color_s);
+                color[depth]=0; // denote that this node is already colored correctly.
+            }
+        }
+        /*update to a new color*/
+        color[depth]=color_s+1;
+        dfs_color(depth+1,color_s+1);
+        color[depth]=0;
+    }
+
 
     private void buildAdjListByMat(){
         this.AdjList = new EdgeNode[V];
@@ -207,28 +350,6 @@ public class Graph {
                 tmp = tmp.next;
             }
         }
-    }
-
-    private void DFSRecurUtil(int v, boolean visited[]){
-        visited[v] = true;
-        System.out.print(v+" ");
-
-        EdgeNode tmp = AdjList[v].next;
-        while(tmp!=null){
-            int n = tmp.nAdjNode;
-            if(!visited[n]){
-                DFSRecurUtil(n,visited);
-            }
-            tmp = tmp.next;
-        }
-    }
-    public void DFSRecur(){
-        boolean[] visited =  new boolean[V];
-        Arrays.fill(visited,false);
-
-        for(int i=0; i<V; i++)
-            if(!visited[i])
-                DFSRecurUtil(i,visited);
     }
 
     private int find(int i,int[] parent){
@@ -313,6 +434,10 @@ public class Graph {
             }
         }
         System.out.println("The minimal cost: " + cost);
+        System.out.println("Edges in MST (kruskal): ");
+//        for(int i=0; i<T.size(); i++){
+//            System.out.print(Arrays.toString(T.get(i))+", ");
+//        }
 
         return T;
     }
@@ -376,6 +501,11 @@ public class Graph {
         }
 
         System.out.println("The cost of MST (prim): "+nCost);
+//        System.out.println("Edges in MST (prim): ");
+//        for(int i=0; i<T.size(); i++){
+//            System.out.print(Arrays.toString(T.get(i))+", ");
+//        }
+
         return T;
     }
 
@@ -435,7 +565,11 @@ public class Graph {
             }
 
         }
+        System.out.println("Edges in shortest path (dijstra): ");
+        System.out.println("Prenode "+ Arrays.toString(P));
+        System.out.println("Distance to node 0"+ Arrays.toString(D));
 
+//        printPath(T);
         return T;
     }
 
@@ -471,24 +605,20 @@ public class Graph {
 
     public static int[][] createAdjMatrix(){
         int[][] es = {
-                {2,4,6},
-                {3,5},
-                {6,7},
-                {6,7},
-                {5,6,7},
-                {7},
-                {3},
-                {}
+                {1,2,4},
+                {2,3},
+                {3,4},
+                {5},
+                {5},
+                {},
         };
         int[][] esw = {
-                {26,38,58},
-                {29,32},
-                {37,34},
-                {52,39},
-                {35,93,37},
-                {28},
-                {52},
-                {}
+                {2,8,7},
+                {5,1},
+                {9,8},
+                {4},
+                {3},
+                {},
         };
         int nV = es.length;
         int[][] adj = new int[nV][nV];
@@ -499,6 +629,7 @@ public class Graph {
         for(int i = 0; i<es.length;i++) {
             for (int j = 0; j < es[i].length; j++) {
                 adj[i][es[i][j]] = esw[i][j];
+                adj[es[i][j]][i] = esw[i][j];
             }
         }
 
@@ -507,30 +638,39 @@ public class Graph {
 
     public static EdgeNode[] createTestAdjList(){
         int[][] es = {
-                {2,4,6},
-                {3,5},
-                {6,7},
-                {6,7},
-                {5,6,7},
-                {7},
-                {3},
-                {}
+                {1,2,4},
+                {2,3},
+                {3,4},
+                {5},
+                {5},
+                {},
         };
         int[][] esw = {
-                {26,38,58},
-                {29,32},
-                {37,34},
-                {52,39},
-                {35,93,37},
-                {28},
-                {52},
-                {}
+                {2,8,7},
+                {5,1},
+                {9,8},
+                {4},
+                {3},
+                {},
         };
+        // each edge is denoted once in original data.
+
         EdgeNode[] edges = new EdgeNode[es.length];
         for(int i = 0; i<es.length; i++){
-            EdgeNode eltmp = new EdgeNode(i,-1);
+            EdgeNode eltmp = edges[i];
+            if(eltmp==null)
+                eltmp = new EdgeNode(i,-1);
             for(int j = 0; j<es[i].length; j++){
-                eltmp.add(es[i][j],esw[i][j]);
+                int u = i; int v = es[i][j]; int nw = esw[i][j];
+                eltmp.add(v,nw);
+                // non-oriented graph, and thus one edge is saved twice in adjacent list.
+                if(edges[v]!=null){
+                    edges[v].add(u,nw);
+                }else{
+                    EdgeNode ll = new EdgeNode(v,-1);
+                    ll.add(u,nw);
+                    edges[v] = ll;
+                }
             }
             edges[i] = eltmp;
         }
@@ -541,19 +681,35 @@ public class Graph {
         int nE = 15;
         String formstr = "\n----------%s----------\n";
 
-        System.out.format(formstr,"build graph: adjacent matrix");
-        Graph g1 = new Graph(createAdjMatrix(),nE);
-        g1.printG();
+//        System.out.format(formstr,"build graph: adjacent matrix");
+//        Graph g1 = new Graph(createAdjMatrix(),nE);
+//        g1.printG();
 
         System.out.format(formstr,"build graph: adjacent linked list");
         Graph g2 = new Graph(createTestAdjList(),nE);
-        g2.printG();
-        System.out.format(formstr,"traversal: BFS by adjacent list");
-        g2.BFS(0);
-        System.out.format(formstr,"traversal: DFS by adjacent list -- stack");
-        g2.DFS(0);
-        System.out.format(formstr,"traversal: DFS by adjacent list- recursion");
-        g2.DFSRecur();
+//        g2.printG();
+
+        // Graph coloring: the minimal number of colors to color a non-oriented graph
+//        g2.dfs_color(0,0);
+//        System.out.println(g2.min_color);
+//        System.out.println(Arrays.toString(g2.color));
+
+//        System.out.format(formstr,"traversal: BFS by adjacent list");
+//        g2.BFS(0);
+//        System.out.format(formstr,"traversal: DFS by adjacent list -- recursion");
+//        g2.DFS(); // start from 0 in default.
+//
+//        System.out.format(formstr,"is a path between nodes "+0+" and "+3 +"exists?-- DFS");
+//        g2.pathTo(0,3,true);
+//        System.out.format(formstr,"is a path between nodes "+0+" and "+3 +"exists?-- BFS");
+//        g2.pathTo(0,3,false);
+//
+//        System.out.format(formstr,"is a cycle exists?-- DFS");
+//        System.out.println(g2.isCycle(true));
+//        System.out.format(formstr,"is a cycle exists?-- BFS");
+//        System.out.println(g2.isCycle(false));
+
+
 
         System.out.format(formstr,"MST: kruskal with priority queue");
         LinkedList<int[]> T_k = g2.Kruskal();
@@ -566,11 +722,11 @@ public class Graph {
         System.out.format(formstr,"Shortest path (source to others): dijstra");
         LinkedList<Edge> P_dij = g2.Dijstra();
         g2.printPath(P_dij);
-
-        System.out.format(formstr,"Shortest path (source to others): floyd, useful for graph with negative edges but not negative cycles");
-        int[][] mat_floyd = g2.floyd();
-        for(int i=0; i<mat_floyd.length;i++)
-            System.out.println(Arrays.toString(mat_floyd[i]));
+//
+//        System.out.format(formstr,"Shortest path (source to others): floyd, useful for graph with negative edges but not negative cycles");
+//        int[][] mat_floyd = g2.floyd();
+//        for(int i=0; i<mat_floyd.length;i++)
+//            System.out.println(Arrays.toString(mat_floyd[i]));
 
 
     }

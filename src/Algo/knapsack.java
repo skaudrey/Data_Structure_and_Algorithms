@@ -22,7 +22,7 @@ public class knapsack {
         Arrays.sort(wv);
     }
 
-    public class wv implements Comparable<wv> {
+    public class wv implements Comparable<wv> { //let the array be sorted by value per unit
         int w;
         int v;
 
@@ -141,10 +141,27 @@ public class knapsack {
         return dp;
     }
 
+    public static int knapsackdc(int nW, int nV){
+        //main: to get optimal, call it by knapsackdc(10,0)
+        int nlow = 0;
+
+        while(nW<wv[nlow].w) nlow++; //get the 1st taken-in object.
+        int nw1 = wv[nlow].w, nv1 = wv[nlow].v;
+        return knapsackdc(nW-nw1,0 ,nlow) + knapsackdc(nw1,nv1, nlow);
+    }
+    private static int knapsackdc(int nW, int nV, int low){
+        if(nW==0 || low==wv.length) return 0; // deep down to the zero unit remained.
+        while(nW<wv[low++].w); // get the 1st taken-in object
+        low--; // remove redundant increment of pointer.
+        int nv_next = wv[low].v;
+        int nw_next = nW-wv[low].w;
+        return  nv_next + knapsackdc(nw_next,nV,low);
+    }
+
     public static void main(String[] args){
-        int nW = 14;
-        int[] w = {1,2,5,6,7};
-        int[] v = {1,2,18,22,28};
+        int nW = 10;
+        int[] w = {2,3,5};
+        int[] v = {2,4,6};
         knapsack sac = new knapsack(w,v);
 
         String formstr = "----------%s----------\n";
@@ -152,12 +169,15 @@ public class knapsack {
 //        System.out.format(formstr,"greedy algorithm");
 //        System.out.println(Arrays.toString(sac.packGreedy(nW)));
 
+//        System.out.format(formstr,"divide and conquer");
+//        System.out.println(knapsackdc(nW,0));
+
         System.out.format(formstr,"zero-one: dp algorithm");
         int[][] dp = sac.packDPZeroOne(nW);
-        System.out.println(Arrays.toString(getPlanZeroOne(dp)));
-        System.out.format(formstr,"Complete: dp algorithm");
-        int[][] dpC = sac.packDPComplete(nW);
-        System.out.println(Arrays.toString(getPlanComplete(dpC)));
+//        System.out.println(Arrays.toString(getPlanZeroOne(dp)));
+//        System.out.format(formstr,"Complete: dp algorithm");
+//        int[][] dpC = sac.packDPComplete(nW);
+//        System.out.println(Arrays.toString(getPlanComplete(dpC)));
 
     }
 
